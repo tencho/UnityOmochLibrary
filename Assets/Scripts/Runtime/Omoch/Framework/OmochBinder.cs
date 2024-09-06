@@ -39,7 +39,27 @@ namespace Omoch.Framework
         private readonly Queue<IFixedUpdatableLogic> removeFixedUpdatableLogicQueue;
         private readonly Queue<IFixedUpdatableView> removeFixedUpdatableViewQueue;
 
-        [field: SerializeField] public bool IsStrict { get; set; } = true;
+        [field: SerializeField, Header("LogicとViewを同時追加しないとエラーが出るモード")] public bool IsStrict { get; set; } = false;
+#if UNITY_EDITOR
+        [ReadOnly, SerializeField, Header("未処理Logic数")] private int readyLogicCount;
+        [ReadOnly, SerializeField, Header("未処理View数")] private int readyViewCount;
+
+        [UnityEditor.CustomPropertyDrawer(typeof(ReadOnlyAttribute))]
+        public class ReadOnlyDrawer : UnityEditor.PropertyDrawer
+        {
+            public override void OnGUI(Rect position, UnityEditor.SerializedProperty property, GUIContent label)
+            {
+                GUI.enabled = false; // インスペクターでの編集を無効化
+                UnityEditor.EditorGUI.PropertyField(position, property, label);
+                GUI.enabled = true; // 次のUI要素のために再度有効化
+            }
+        }
+
+        public class ReadOnlyAttribute : PropertyAttribute
+        {
+            // 何もしない
+        }
+#endif
 
         public OmochBinder()
         {
@@ -56,6 +76,16 @@ namespace Omoch.Framework
             removeFixedUpdatableLogicQueue = new();
             removeFixedUpdatableViewQueue = new();
         }
+
+        /// <summary>
+        /// まだバインド処理が完了していないLogic
+        /// </summary>
+        public Dictionary<LinkID, ILogicCore> ReadyLogics => readyLogics;
+
+        /// <summary>
+        /// まだバインド処理が完了していないView
+        /// </summary>
+        public Dictionary<LinkID, IViewCore> ReadyViews => readyViews;
 
         /// <summary>
         /// LinkIDでLogicWithInputを関連付け予約する。
@@ -214,7 +244,7 @@ namespace Omoch.Framework
             }
         }
 
-        public void BindLogicAndView<ViewOrder, Peek>
+        public void BindLogicAndView<Peek, ViewOrder>
             (
                 ILogicBase<ViewOrder> logic,
                 IViewBase<Peek> view
@@ -230,6 +260,20 @@ namespace Omoch.Framework
 
         private void InitLogicAndView(ILogicCore logic, IViewCore view)
         {
+            // 既にどちらか破棄されていたら両方破棄して終了
+            if (logic.IsDisposed || view.IsDisposed)
+            {
+                if (!logic.IsDisposed)
+                {
+                    logic.Dispose();
+                }
+                if (!view.IsDisposed)
+                {
+                    view.Dispose();
+                }
+                return;
+            }
+
             // 片方がDisposeされたら対応するもう片方も同時にDisposeする
             void disposeLogicHandler() => DisposeLogicHandler(logic, view);
             void disposeViewHandler() => DisposeViewHandler(logic, view);
@@ -338,6 +382,11 @@ namespace Omoch.Framework
             {
                 updatableViews.Remove(removeUpdatableViewQueue.Dequeue());
             }
+
+#if UNITY_EDITOR
+            readyLogicCount = readyLogics.Count;
+            readyViewCount = readyViews.Count;
+#endif
         }
 
         private void FixedUpdate()
