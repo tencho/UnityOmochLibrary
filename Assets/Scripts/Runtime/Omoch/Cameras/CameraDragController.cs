@@ -19,11 +19,15 @@ namespace Omoch.Cameras
         [SerializeField] private GameObject? lookAtObject = default;
         [SerializeField] private Vector3 offset = new(0f, 0f, 0f);
         [SerializeField] private float rotation = 0f;
-        [SerializeField] private float angle = 0f;
-        [SerializeField] private float distance = 1f;
+        [SerializeField, Range(-AngleLimit, AngleLimit)] private float angle = 0f;
+        [SerializeField, Min(0)] private float distance = 1f;
         [SerializeField] private float rotationSpeed = 1f;
         [SerializeField] private float panSpeed = 1f;
 
+        private const float AngleLimit = 89.9f;
+        private const float WheelDistanceLevelStep = 0.2f;
+
+        private float initialDistance = 0f;
         private Vector3 pressOffset = new(0f, 0f, 0f);
         private bool isMouseDragging = false;
         private bool isWheelDragging = false;
@@ -31,7 +35,6 @@ namespace Omoch.Cameras
         private Vector2 pressWheelPosition = new(0f, 0f);
         private float pressAngle = 0f;
         private float pressRotation = 0f;
-        private float distanceLevel = 1;
         private readonly FloatTracker rotationTracker = new(0.2f, 10f, 4f);
         private readonly FloatTracker angleTracker = new(0.2f, 10f, 4f);
         private readonly FloatTracker distanceLevelTracker = new(0.2f, 1f, 4f);
@@ -41,7 +44,9 @@ namespace Omoch.Cameras
         {
             angleTracker.JumpTo(angle);
             rotationTracker.JumpTo(rotation);
-            distanceLevelTracker.JumpTo(distanceLevel);
+            initialDistance = distance;
+            distanceLevelTracker.JumpTo(0f);
+            UpdateDistance();
             ApplyTransform();
         }
 #endif
@@ -50,12 +55,21 @@ namespace Omoch.Cameras
         {
             angleTracker.JumpTo(angle);
             rotationTracker.JumpTo(rotation);
-            distanceLevelTracker.JumpTo(distanceLevel);
+            initialDistance = distance;
+            distanceLevelTracker.JumpTo(0f);
+            UpdateDistance();
             ApplyTransform();
+        }
+
+        private void UpdateDistance()
+        {
+            distance = initialDistance * Mathf.Pow(2f, distanceLevelTracker.Current);
         }
 
         private void LateUpdate()
         {
+            UpdateDistance();
+
             var touchPositions = GameInputSystem.GetTouchPositions();
             if (GameInputSystem.IsWheelDown())
             {
@@ -91,18 +105,17 @@ namespace Omoch.Cameras
             {
                 Vector2 dragDistance = touchPositions[0] - pressMousePosition;
                 rotation = pressRotation - dragDistance.x * rotationSpeed;
-                angle = Mathf.Clamp(pressAngle - dragDistance.y * rotationSpeed, -89.9f, 89.9f);
+                angle = Mathf.Clamp(pressAngle - dragDistance.y * rotationSpeed, -AngleLimit, AngleLimit);
             }
 
             float wheelScroll = GameInputSystem.GetWheelScroll();
             if (wheelScroll != 0)
             {
-                distanceLevel += wheelScroll > 0 ? -0.1f : 0.1f;
+                distanceLevelTracker.Destination += (wheelScroll > 0) ? -WheelDistanceLevelStep : WheelDistanceLevelStep;
             }
 
             angleTracker.MoveTo(angle);
             rotationTracker.MoveTo(rotation);
-            distanceLevelTracker.MoveTo(distanceLevel);
             angleTracker.AdvanceTime(Time.deltaTime);
             rotationTracker.AdvanceTime(Time.deltaTime);
             distanceLevelTracker.AdvanceTime(Time.deltaTime);
@@ -112,14 +125,13 @@ namespace Omoch.Cameras
 
         private void ApplyTransform()
         {
-            float x = Mathf.Cos(angleTracker.Current / 180 * Mathf.PI) * Mathf.Cos(rotationTracker.Current / 180 * Mathf.PI);
-            float z = Mathf.Cos(angleTracker.Current / 180 * Mathf.PI) * Mathf.Sin(rotationTracker.Current / 180 * Mathf.PI);
-            float y = Mathf.Sin(angleTracker.Current / 180 * Mathf.PI);
+            float x = Mathf.Cos(angleTracker.Current * Mathf.Deg2Rad) * Mathf.Cos(rotationTracker.Current * Mathf.Deg2Rad);
+            float z = Mathf.Cos(angleTracker.Current * Mathf.Deg2Rad) * Mathf.Sin(rotationTracker.Current * Mathf.Deg2Rad);
+            float y = Mathf.Sin(angleTracker.Current * Mathf.Deg2Rad);
             Vector3 cameraPosition = new(x, y, z);
             Vector3 lookAtPosition = lookAtObject == null ? new Vector3(0f, 0f, 0f) : lookAtObject.transform.position;
             Vector3 targetPosition = lookAtPosition + offset;
-            float cameraDistance = Mathf.Pow(distance, distanceLevelTracker.Current);
-            transform.position = targetPosition + cameraPosition * cameraDistance;
+            transform.position = targetPosition + cameraPosition * distance;
             transform.LookAt(targetPosition);
         }
     }
