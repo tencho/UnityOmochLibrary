@@ -192,9 +192,10 @@ namespace Omoch.Inputs
                         {
                                 return 0f;
                         }
-                        return Mouse.current.scroll.ReadValue().y;
+                        // Mathf.Signだと0が1になってしまうのでMath.Signを使う
+                        return System.Math.Sign(Mouse.current.scroll.ReadValue().y);
 #else
-                        return Input.GetAxis("Mouse ScrollWheel");
+                        return System.Math.Sign(Input.GetAxis("Mouse ScrollWheel"));
 #endif
                 }
         }
