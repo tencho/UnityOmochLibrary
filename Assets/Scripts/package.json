@@ -1,10 +1,10 @@
 {
   "name": "com.omoch.library",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "displayName": "Omoch Library",
   "description": "Unfocused Miscellaneous Classes",
   "unity": "2022.3",
-  "unityRelease": "17f1",
+  "unityRelease": "40f1",
   "keywords": [],
   "author": {
     "name": "tencho",
