@@ -4,7 +4,7 @@ using UnityEngine;
 
 #nullable enable
 
-namespace Omoch
+namespace Omoch.Imaging
 {
     /// <summary>
     /// 連結成分ラベリングで繋がった領域ごとにラベル付けする
