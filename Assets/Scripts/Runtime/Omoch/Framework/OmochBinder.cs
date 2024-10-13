@@ -26,23 +26,33 @@ namespace Omoch.Framework
     /// </remarks>
     public class OmochBinder : MonoBehaviour
     {
-        private readonly List<IUpdatableLogic> updatableLogics;
-        private readonly List<IUpdatableView> updatableViews;
-        private readonly List<IFixedUpdatableLogic> fixedUpdatableLogics;
-        private readonly List<IFixedUpdatableView> fixedUpdatableViews;
-        private readonly Dictionary<LinkID, ILogicCore> readyLogics;
-        private readonly Dictionary<LinkID, IViewCore> readyViews;
-        private readonly Dictionary<ILogicCore, Action> disposeLogicHandlers;
-        private readonly Dictionary<IViewCore, Action> disposeViewHandlers;
-        private readonly Queue<IUpdatableLogic> removeUpdatableLogicQueue;
-        private readonly Queue<IUpdatableView> removeUpdatableViewQueue;
-        private readonly Queue<IFixedUpdatableLogic> removeFixedUpdatableLogicQueue;
-        private readonly Queue<IFixedUpdatableView> removeFixedUpdatableViewQueue;
+        private readonly List<IUpdatableLogic> updatableLogics = new();
+        private readonly List<IUpdatableView> updatableViews = new();
+        private readonly List<IFixedUpdatableLogic> fixedUpdatableLogics = new();
+        private readonly List<IFixedUpdatableView> fixedUpdatableViews = new();
+        private readonly Dictionary<LinkID, ILogicCore> readyLogics = new();
+        private readonly Dictionary<LinkID, IViewCore> readyViews = new();
+        private readonly Dictionary<ILogicCore, Action> disposeLogicHandlers = new();
+        private readonly Dictionary<IViewCore, Action> disposeViewHandlers = new();
+        private readonly Queue<IUpdatableLogic> removeUpdatableLogicQueue = new();
+        private readonly Queue<IUpdatableView> removeUpdatableViewQueue = new();
+        private readonly Queue<IFixedUpdatableLogic> removeFixedUpdatableLogicQueue = new();
+        private readonly Queue<IFixedUpdatableView> removeFixedUpdatableViewQueue = new();
 
-        [field: SerializeField, Header("LogicとViewを同時追加しないとエラーが出るモード")] public bool IsStrict { get; set; } = false;
+        [field: SerializeField]
+        [field: Tooltip("LogicとViewを同時追加しないとエラーが出るモード")]
+        public bool IsStrict { get; set; } = false;
+
 #if UNITY_EDITOR
-        [ReadOnly, SerializeField, Header("未処理Logic数")] private int readyLogicCount;
-        [ReadOnly, SerializeField, Header("未処理View数")] private int readyViewCount;
+        [ReadOnly]
+        [SerializeField]
+        [Tooltip("未処理Logic数")]
+        private int readyLogicCount;
+
+        [ReadOnly]
+        [SerializeField]
+        [Tooltip("未処理View数")]
+        private int readyViewCount;
 
         [UnityEditor.CustomPropertyDrawer(typeof(ReadOnlyAttribute))]
         public class ReadOnlyDrawer : UnityEditor.PropertyDrawer
@@ -55,27 +65,11 @@ namespace Omoch.Framework
             }
         }
 
-        public class ReadOnlyAttribute : PropertyAttribute
+        private class ReadOnlyAttribute : PropertyAttribute
         {
             // 何もしない
         }
 #endif
-
-        public OmochBinder()
-        {
-            updatableLogics = new();
-            updatableViews = new();
-            fixedUpdatableLogics = new();
-            fixedUpdatableViews = new();
-            readyLogics = new();
-            readyViews = new();
-            disposeLogicHandlers = new();
-            disposeViewHandlers = new();
-            removeUpdatableLogicQueue = new();
-            removeUpdatableViewQueue = new();
-            removeFixedUpdatableLogicQueue = new();
-            removeFixedUpdatableViewQueue = new();
-        }
 
         /// <summary>
         /// まだバインド処理が完了していないLogic
@@ -91,10 +85,10 @@ namespace Omoch.Framework
         /// LinkIDでLogicWithInputを関連付け予約する。
         /// 既に同じLinkIDでViewWithInputが関連付け予約されていたら、LogicとViewが関連付けられる。
         /// </summary>
-        public void BindLogicWithInput<Peek, ViewOrder, InputData>
-            (ILogicBaseWithInput<ViewOrder, InputData> logic, LinkID key)
-            where ViewOrder : class
-            where Peek : class
+        public void BindLogicWithInput<TPeek, TViewOrder, TInputData>
+            (ILogicBaseWithInput<TViewOrder, TInputData> logic, LinkID key)
+            where TViewOrder : class
+            where TPeek : class
         {
             if (logic == null)
             {
@@ -106,7 +100,7 @@ namespace Omoch.Framework
                 var view = readyViews[key];
                 readyViews.Remove(key);
 
-                if (view is IViewBaseWithInput<Peek, InputData> viewBase)
+                if (view is IViewBaseWithInput<TPeek, TInputData> viewBase)
                 {
                     BindLogicAndViewWithInput(logic, viewBase);
                 }
@@ -125,10 +119,10 @@ namespace Omoch.Framework
         /// LinkIDでViewWithInputを関連付け予約する。
         /// 既に同じLinkIDでLogicWithInputが関連付け予約されていたら、LogicとViewが関連付けられる。
         /// </summary>
-        public void BindViewWithInput<Peek, ViewOrder, InputData>
-            (IViewBaseWithInput<Peek, InputData> view, LinkID key)
-            where Peek : class
-            where ViewOrder : class
+        public void BindViewWithInput<TPeek, TViewOrder, TInputData>
+            (IViewBaseWithInput<TPeek, TInputData> view, LinkID key)
+            where TPeek : class
+            where TViewOrder : class
         {
             if (view == null)
             {
@@ -140,7 +134,7 @@ namespace Omoch.Framework
                 var logic = readyLogics[key];
                 readyLogics.Remove(key);
 
-                if (logic is ILogicBaseWithInput<ViewOrder, InputData> logicBase)
+                if (logic is ILogicBaseWithInput<TViewOrder, TInputData> logicBase)
                 {
                     BindLogicAndViewWithInput(logicBase, view);
                 }
@@ -158,20 +152,21 @@ namespace Omoch.Framework
         /// <summary>
         /// LogicWithInputとViewWithInputを関連付けする。
         /// </summary>
-        public void BindLogicAndViewWithInput<ViewOrder, Peek, InputData>
-            (
-                ILogicBaseWithInput<ViewOrder, InputData> logic,
-                IViewBaseWithInput<Peek, InputData> view
-            )
-            where ViewOrder : class
-            where Peek : class
+        public void BindLogicAndViewWithInput<TViewOrder, TPeek, TInputData>
+        (
+            ILogicBaseWithInput<TViewOrder, TInputData> logic,
+            IViewBaseWithInput<TPeek, TInputData> view
+        )
+            where TViewOrder : class
+            where TPeek : class
         {
-            InputDispatcher<InputData> input = new();
+            InputDispatcher<TInputData> input = new();
             logic.Input = input;
             view.Input = input;
 
-            logic.ViewOrder = view as ViewOrder ?? throw new Exception("viewがViewOrderを実装していません"); ;
-            view.Peek = logic as Peek ?? throw new Exception("logicがPeekを実装していません");
+            logic.ViewOrder = view as TViewOrder ?? throw new Exception("viewがViewOrderを実装していません");
+            ;
+            view.Peek = logic as TPeek ?? throw new Exception("logicがPeekを実装していません");
 
             InitLogicAndView(logic, view);
         }
@@ -180,10 +175,10 @@ namespace Omoch.Framework
         /// LinkIDでLogicを関連付け予約する。
         /// 既に同じLinkIDでViewが関連付け予約されていたら、LogicとViewが関連付けられる。
         /// </summary>
-        public void BindLogic<Peek, ViewOrder>
-            (ILogicBase<ViewOrder> logic, LinkID key)
-            where ViewOrder : class
-            where Peek : class
+        public void BindLogic<TPeek, TViewOrder>
+            (ILogicBase<TViewOrder> logic, LinkID key)
+            where TViewOrder : class
+            where TPeek : class
         {
             if (logic == null)
             {
@@ -195,7 +190,7 @@ namespace Omoch.Framework
                 var view = readyViews[key];
                 readyViews.Remove(key);
 
-                if (view is IViewBase<Peek> viewBase)
+                if (view is IViewBase<TPeek> viewBase)
                 {
                     BindLogicAndView(logic, viewBase);
                 }
@@ -214,10 +209,10 @@ namespace Omoch.Framework
         /// LinkIDでViewを関連付け予約する。
         /// 既に同じLinkIDでLogicが関連付け予約されていたら、LogicとViewが関連付けられる。
         /// </summary>
-        public void BindView<Peek, ViewOrder>
-            (IViewBase<Peek> view, LinkID key)
-            where Peek : class
-            where ViewOrder : class
+        public void BindView<TPeek, TViewOrder>
+            (IViewBase<TPeek> view, LinkID key)
+            where TPeek : class
+            where TViewOrder : class
         {
             if (view == null)
             {
@@ -229,7 +224,7 @@ namespace Omoch.Framework
                 var logic = readyLogics[key];
                 readyLogics.Remove(key);
 
-                if (logic is ILogicBase<ViewOrder> logicBase)
+                if (logic is ILogicBase<TViewOrder> logicBase)
                 {
                     BindLogicAndView(logicBase, view);
                 }
@@ -244,16 +239,16 @@ namespace Omoch.Framework
             }
         }
 
-        public void BindLogicAndView<Peek, ViewOrder>
-            (
-                ILogicBase<ViewOrder> logic,
-                IViewBase<Peek> view
-            )
-            where ViewOrder : class
-            where Peek : class
+        public void BindLogicAndView<TPeek, TViewOrder>
+        (
+            ILogicBase<TViewOrder> logic,
+            IViewBase<TPeek> view
+        )
+            where TViewOrder : class
+            where TPeek : class
         {
-            logic.ViewOrder = view as ViewOrder ?? throw new Exception($"View({view})がViewOrder({typeof(ViewOrder)})を実装していません"); ;
-            view.Peek = logic as Peek ?? throw new Exception($"Logic({logic})がPeek({typeof(Peek)})を実装していません");
+            logic.ViewOrder = view as TViewOrder ?? throw new Exception($"View({view})がViewOrder({typeof(TViewOrder)})を実装していません");
+            view.Peek = logic as TPeek ?? throw new Exception($"Logic({logic})がPeek({typeof(TPeek)})を実装していません");
 
             InitLogicAndView(logic, view);
         }
@@ -267,20 +262,20 @@ namespace Omoch.Framework
                 {
                     logic.Dispose();
                 }
+
                 if (!view.IsDisposed)
                 {
                     view.Dispose();
                 }
+
                 return;
             }
 
             // 片方がDisposeされたら対応するもう片方も同時にDisposeする
-            void disposeLogicHandler() => DisposeLogicHandler(logic, view);
-            void disposeViewHandler() => DisposeViewHandler(logic, view);
-            logic.OnDispose += disposeLogicHandler;
-            view.OnDispose += disposeViewHandler;
-            disposeLogicHandlers.Add(logic, disposeLogicHandler);
-            disposeViewHandlers.Add(view, disposeViewHandler);
+            logic.OnDispose += DisposeLogic;
+            view.OnDispose += DisposeView;
+            disposeLogicHandlers.Add(logic, DisposeLogic);
+            disposeViewHandlers.Add(view, DisposeView);
 
             logic.IsInitialized = true;
             view.IsInitialized = true;
@@ -307,6 +302,11 @@ namespace Omoch.Framework
             {
                 fixedUpdatableViews.Add(fixedUpdatableView);
             }
+
+            return;
+
+            void DisposeLogic() => DisposeLogicHandler(logic, view);
+            void DisposeView() => DisposeViewHandler(logic, view);
         }
 
         private void RemoveLogicAndView(ILogicCore logic, IViewCore view)
@@ -321,15 +321,18 @@ namespace Omoch.Framework
             {
                 removeUpdatableLogicQueue.Enqueue(updatableLogic);
             }
+
             if (logic is IFixedUpdatableLogic fixedUpdatableLogic)
             {
                 removeFixedUpdatableLogicQueue.Enqueue(fixedUpdatableLogic);
             }
+
             // 全ViewのUpdateView呼び出しループ中にリストから削除するとエラーになるので、削除キューに加えておきループ後に削除する
             if (view is IUpdatableView updatableView)
             {
                 removeUpdatableViewQueue.Enqueue(updatableView);
             }
+
             if (view is IFixedUpdatableView fixedUpdatableView)
             {
                 removeFixedUpdatableViewQueue.Enqueue(fixedUpdatableView);
@@ -358,6 +361,7 @@ namespace Omoch.Framework
                     object view = readyViews.Values.First();
                     throw new Exception($"同一フレーム内で{view}に対応するLogicが初期化されていません。");
                 }
+
                 if (readyLogics.Any())
                 {
                     object logic = readyLogics.Values.First();
@@ -369,6 +373,7 @@ namespace Omoch.Framework
             {
                 logic.UpdateLogic();
             }
+
             foreach (IUpdatableView view in updatableViews)
             {
                 view.UpdateView();
@@ -378,6 +383,7 @@ namespace Omoch.Framework
             {
                 updatableLogics.Remove(removeUpdatableLogicQueue.Dequeue());
             }
+
             while (removeUpdatableViewQueue.Any())
             {
                 updatableViews.Remove(removeUpdatableViewQueue.Dequeue());
@@ -405,6 +411,7 @@ namespace Omoch.Framework
             {
                 fixedUpdatableLogics.Remove(removeFixedUpdatableLogicQueue.Dequeue());
             }
+
             while (removeFixedUpdatableViewQueue.Any())
             {
                 fixedUpdatableViews.Remove(removeFixedUpdatableViewQueue.Dequeue());
